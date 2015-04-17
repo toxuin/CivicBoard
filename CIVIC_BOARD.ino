@@ -1,18 +1,20 @@
 #include <Servo.h>
 #include <SoftwareSerial.h>
 
+#define BATTERY_PIN A6
+#define LED_PIN 13
+#define ESC_PIN 9
+#define CONTROL_BTN_PIN 10
+#define BUZZER_PIN 11
+#define BLUETOOTH_TX 2
+#define BLUETOOTH_RX 3
+
 Servo esc;
-SoftwareSerial bluetooth(3, 2); // RX, TX
+SoftwareSerial bluetooth(BLUETOOTH_RX, BLUETOOTH_TX); // RX, TX
 
-int ledPin = 13;
-int escPin = 9;
-int upBtnPin = 5;
-int centerBtnPin = 6;
-int downBtnPin = 7;
-
-const int UP = 180;
-const int DOWN = 20;
-const int CENTER = 120;
+int UP = 180;
+int DOWN = 20;
+int CENTER = 120;
 
 unsigned int pos = DOWN;
 
@@ -20,19 +22,20 @@ unsigned int pos = DOWN;
 String Data = "";
 
 void setup() {
-  esc.attach(escPin);
+  esc.attach(ESC_PIN);
   
   Serial.begin(9600);
   bluetooth.begin(9600);
   delay(500);
   
-  pinMode(ledPin, OUTPUT);
-  pinMode(upBtnPin, INPUT);
-  pinMode(centerBtnPin, INPUT);
-  pinMode(downBtnPin, INPUT);
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(CONTROL_BTN_PIN, INPUT);
+  pinMode(BATTERY_PIN, INPUT_PULLUP);
   
+  tone(BUZZER_PIN, 300, 100);
   Serial.println("READY!");
-  
+    
   //esc.write(0);
   //delay(2000);
 } 
@@ -40,6 +43,7 @@ void setup() {
 
 void loop() { 
   
+  /*
   // BUTTONS FOR ESC
   if (digitalRead(downBtnPin) == HIGH) {
     // pos = DOWN;
@@ -51,13 +55,14 @@ void loop() {
     // pos == UP;
     pos++;
   }
+  */
   //outputVar("position:", pos);
   
   // ERROR CONTROL
   if (pos > 180) pos = 180;
   else if (pos < 10) pos = 10;
-
-  startListenForBT();
+  
+  getBluetoothCommands();
 
   // COMMIT 
   //esc.write(pos);
@@ -67,9 +72,8 @@ void loop() {
   
 }
 
-void startListenForBT() {
+void getBluetoothCommands() {
   while (bluetooth.available()) {
-    Serial.println("BLUETOOTH OK");
     char character = bluetooth.read();
     Data = Data + character;
     if (character == 59) { // ;
@@ -77,11 +81,11 @@ void startListenForBT() {
       Serial.println(Data);
       
       
-      if (Data == "ON;") {
-        digitalWrite(ledPin, HIGH);
+      if (Data == "BATT;") {
+        bluetooth.print(batteryVoltage(), DEC);
         Serial.print("LED ON");
       } else if (Data == "OFF;") {
-        digitalWrite(ledPin, LOW);
+        digitalWrite(LED_PIN, LOW);
         Serial.print("LED OFF");
       } else {
         Serial.print("NOT A COMMAND! LENGTH: ");
@@ -92,5 +96,14 @@ void startListenForBT() {
       Data = "";
     }
   }
+}
+
+float batteryVoltage() { 
+  float voltageSum = 0;
+  for (int i = 0; i < 10; i++) {
+    int batteryVoltage = analogRead(BATTERY_PIN);    
+    voltageSum += batteryVoltage * (3.3 / 1023.0);
+  }
+  return voltageSum/10;
 }
 
