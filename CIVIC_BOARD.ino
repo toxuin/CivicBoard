@@ -42,6 +42,8 @@ String Data = "";
 
 // ANIMATION THINGS
 bool anim = false;
+bool randomPulsing = false;
+unsigned int bpm = 0;
 
 void setup() {
   esc.attach(ESC_PIN);
@@ -54,7 +56,7 @@ void setup() {
   delay(100);
   
   pinMode(SAFETY_PIN, INPUT);
-  pinMode(BATTERY_PIN, INPUT_PULLUP);
+  pinMode(BATTERY_PIN, INPUT);
   
   esc.write(ESC_MIDPOINT);
   pos = ESC_MIDPOINT;
@@ -118,11 +120,22 @@ void loop() {
   
   // ANIM PART
   if (anim) {
-    for (int channel = 0; channel < 15; channel++) {
+    if (bpm != 0) {
+      for (int channel = 0; channel < 15; channel++) {
+        if (!tlc_isFading(channel)) {
+          Tlc.set(channel, random(4095));
+          Tlc.update();
+          tlc_addFade(channel, Tlc.get(channel), 0, millis(), millis()+(60000/bpm));
+        }
+      }
+    } else {
+      for (int channel = 0; channel < 15; channel++) {
         if (!tlc_isFading(channel)) {
             tlc_addFade(channel, Tlc.get(channel), random(4095), millis(), millis() + 1000);
         }
+      }      
     }
+    
     tlc_updateFades();
   }
  
@@ -152,7 +165,12 @@ void getBluetoothCommands() {
           Tlc.update();
         }
         Serial.println(F("ANIM STARTED"));
-      } 
+      }
+      
+      else if (Data == "PING;") {
+        bluetooth.println(F("PONG;"));
+        Serial.println(F("PING REQUESTED"));
+      }
       
       else if (Data == "STOP;") {
         pos = ESC_MINIMUM;
@@ -221,6 +239,15 @@ void getBluetoothCommands() {
           Serial.print(F(" to "));
           Serial.println(value);
         }
+      }
+      
+      
+      
+      else if (Data.charAt(0) == 'P') {
+        String value = Data.substring(1, Data.length() - 1);
+        bpm = (int) strtol(value.c_str(), NULL, 16);
+        Serial.print(F("GOT BPM: "));
+        Serial.println(bpm);
       }
       
       
